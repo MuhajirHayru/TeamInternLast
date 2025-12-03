@@ -1,13 +1,16 @@
 # teamworkapp/urls.py
-from django.urls import path
-from .views import (
-    NewsListCreateView, NewsDetailView,
-    EventListCreateView, EventDetailView,
-    JobListCreateView, JobDetailView,
-    ApprovalListView, ApprovalReviewView
-)
+from django.urls import path,include
+from .views import *
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.routers import DefaultRouter
 
+router=DefaultRouter()
+router.register(r'post-comments', PostCommentViewSet)
+router.register(r'post-reactions', PostReactionViewSet)
+router.register(r'post-shares', PostShareViewSet)
+router.register(r'post-ratings', PostRatingViewSet)
+router.register(r'post-views', PostViewViewSet)
+router.register(r'post-analytics', PostAnalyticsViewSet)
 urlpatterns = [
     # JWT
     path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -28,4 +31,5 @@ urlpatterns = [
     # Approvals (admin review)
     path('api/v1/approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('api/v1/approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),
+    path ('api/v1/feadback/',include(router.urls))
 ]

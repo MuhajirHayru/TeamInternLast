@@ -4,9 +4,11 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db import models
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import AllowAny,IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .models import News, Event, JobAnnouncement, Approval
-from .serializers import NewsSerializer, EventSerializer, JobAnnouncementSerializer, ApprovalSerializer
+from .models import *
+from .serializers import *
+from rest_framework import viewsets
 
 # -----------------------
 # Helper function: public_filter
@@ -122,15 +124,15 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 # APPROVALS
 # -----------------------
 class ApprovalListView(generics.ListAPIView):
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    # authentication_classes = (JWTAuthentication,)
+    # permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ApprovalSerializer
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser or getattr(user, "role", None) == "admin":
-            return Approval.objects.all().order_by("-submitted_at")
-        return Approval.objects.filter(submitted_by=user).order_by("-submitted_at")
+    queryset=Approval.objects.filter(status='APPROVED')
+    # def get_queryset(self):
+    #     user = self.request.user
+    # #     if user.is_superuser or getattr(user, "role", None) == "admin":
+    #         return Approval.objects.all().order_by("-submitted_at")
+    #     return Approval.objects.filter(submitted_by=user).order_by("-submitted_at")
 
 class ApprovalReviewView(generics.UpdateAPIView):
     """
@@ -183,3 +185,73 @@ class ApprovalReviewView(generics.UpdateAPIView):
             pass
 
         return Response(ApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+#=================================================================
+class PostCommentViewSet(viewsets.ModelViewSet):
+    queryset = PostComment.objects.all().order_by("-created_at")
+    serializer_class = PostCommentSerializer
+    permission_classes = [AllowAny]
+
+    def perform_create(self, serializer):
+       user = self.request.user if self.request.user.is_authenticated else None
+       serializer.save(user=user)
+
+
+class PostReactionViewSet(viewsets.ModelViewSet):
+    queryset = PostReaction.objects.all().order_by("-reacted_at")
+    serializer_class = PostReactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # update_or_create ensures one reaction per user per object
+        obj, created = PostReaction.objects.update_or_create(
+            content_type=serializer.validated_data["content_type"],
+            object_id=serializer.validated_data["object_id"],
+            user=self.request.user,
+            defaults={"reaction_type": serializer.validated_data["reaction_type"]}
+        )
+        serializer.instance = obj
+
+class PostShareViewSet(viewsets.ModelViewSet):
+    queryset = PostShare.objects.all().order_by("-shared_at")
+    serializer_class = PostShareSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class PostRatingViewSet(viewsets.ModelViewSet):
+    queryset = PostRating.objects.all().order_by("-rated_at")
+    serializer_class = PostRatingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        obj, created = PostRating.objects.update_or_create(
+            content_type=serializer.validated_data["content_type"],
+            object_id=serializer.validated_data["object_id"],
+            user=self.request.user,
+            defaults={"rating": serializer.validated_data["rating"]}
+        )
+        serializer.instance = obj
+
+class PostViewViewSet(viewsets.ModelViewSet):
+    queryset = PostView.objects.all().order_by("-viewed_at")
+    serializer_class = PostViewSerializer
+    permission_classes = [AllowAny]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user if self.request.user.is_authenticated else None)
+
+class PostAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = PostAnalyticsSerializer
+    queryset = PostAnalytics.objects.all()
+    def get_queryset(self):
+        qs = PostAnalytics.objects.all()
+        object_id = self.request.query_params.get("object_id")
+        content_type = self.request.query_params.get("content_type")
+
+        if object_id:
+            qs = qs.filter(object_id=object_id)
+        if content_type:
+            qs = qs.filter(content_type_id=content_type)
+
+        return qs

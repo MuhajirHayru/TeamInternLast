@@ -334,3 +334,124 @@ def create_approval_on_create(sender, instance, created, **kwargs):
                 object_id=instance.pk,
                 submitted_by=submitted_by
             )
+        #============================below this bekeles code ================
+class PostComment(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    user = models.ForeignKey("Teamworkapp.User", on_delete=models.SET_NULL, null=True)
+    comment_text = models.TextField()
+    parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.content_object}"
+
+# -------------------
+# REACTIONS
+# -------------------
+class PostReaction(models.Model):
+    REACTION_TYPES = [
+        ("like", "Like"),
+        ("love", "Love"),
+        ("insightful", "Insightful"),
+        ("celebrate", "Celebrate"),
+        ("dislike", "Dislike"),
+    ]
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    reaction_type = models.CharField(max_length=20, choices=REACTION_TYPES, default="like")
+    reacted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("content_type", "object_id", "user")  # one reaction per user per item
+
+    def __str__(self):
+        return f"{self.user} reacted {self.reaction_type} on {self.content_object}"
+
+# -------------------
+# SHARES
+# -------------------
+class PostShare(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    shared_to = models.CharField(max_length=100, blank=True, null=True)  # e.g. Facebook, Telegram
+    shared_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} shared {self.content_object} to {self.shared_to or 'Internal'}"
+
+# -------------------
+# RATINGS
+# -------------------
+class PostRating(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField()  # 1–5 stars
+    rated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("content_type", "object_id", "user")
+
+    def __str__(self):
+        return f"{self.user} rated {self.content_object} - {self.rating}★"
+
+# -------------------
+# VIEWS
+# -------------------
+class PostView(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"View on {self.content_object} by {self.user or 'Anonymous'}"
+class PostAnalytics(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    total_views = models.PositiveIntegerField(default=0)
+    total_comments = models.PositiveIntegerField(default=0)
+    total_reactions = models.PositiveIntegerField(default=0)
+    total_shares = models.PositiveIntegerField(default=0)
+    total_ratings = models.PositiveIntegerField(default=0)
+    average_rating = models.FloatField(default=0.0)
+    engagement_score = models.FloatField(default=0.0)
+    last_updated = models.DateTimeField(auto_now=True)
+    class Meta:
+        unique_together = ("content_type", "object_id") 
+
+    def update_stats(self):
+        self.total_views = PostView.objects.filter(content_type=self.content_type, object_id=self.object_id).count()
+        self.total_comments = PostComment.objects.filter(content_type=self.content_type, object_id=self.object_id).count()
+        self.total_reactions = PostReaction.objects.filter(content_type=self.content_type, object_id=self.object_id).count()
+        self.total_shares = PostShare.objects.filter(content_type=self.content_type, object_id=self.object_id).count()
+        self.total_ratings = PostRating.objects.filter(content_type=self.content_type, object_id=self.object_id).count()
+
+        ratings = PostRating.objects.filter(content_type=self.content_type, object_id=self.object_id).values_list("rating", flat=True)
+        self.average_rating = round(sum(ratings) / len(ratings), 2) if ratings else 0.0
+
+        self.engagement_score = (
+            (self.total_reactions * 2)
+            + self.total_comments
+            + (self.total_shares * 3)
+            + (self.average_rating * 10)
+        )
+        self.save()
+
+    def __str__(self):
+        return f"Analytics for {self.content_object}"

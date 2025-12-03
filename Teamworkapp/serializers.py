@@ -1,7 +1,7 @@
 # teamworkapp/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Pictures, News, Event, JobAnnouncement, Approval
+from .models import *
 
 User = get_user_model()
 
@@ -120,3 +120,57 @@ class ApprovalSerializer(serializers.ModelSerializer):
         if hasattr(related, "name"):
             return {"id": related.pk, "name": getattr(related, "name")}
         return {"id": related.pk}
+#==============================================================my beke
+class PostCommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostComment
+        fields = ("id", "content_type", "object_id", "user", "comment_text", "parent_comment", "created_at", "replies")
+        read_only_fields = ("user", "created_at")
+
+    def get_replies(self, obj):
+        return PostCommentSerializer(obj.replies.all(), many=True).data
+
+class PostReactionSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PostReaction
+        fields = ("id", "content_type", "object_id", "user", "reaction_type", "reacted_at")
+        read_only_fields = ("user", "reacted_at")
+
+class PostShareSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PostShare
+        fields = ("id", "content_type", "object_id", "user", "shared_to", "shared_at")
+        read_only_fields = ("user", "shared_at")
+
+class PostRatingSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PostRating
+        fields = ("id", "content_type", "object_id", "user", "rating", "rated_at")
+        read_only_fields = ("user", "rated_at")
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value
+
+class PostViewSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PostView
+        fields = ("id", "content_type", "object_id", "user", "viewed_at")
+        read_only_fields = ("user", "viewed_at")
+
+class PostAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostAnalytics
+        fields = "__all__"
