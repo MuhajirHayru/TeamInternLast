@@ -1,10 +1,10 @@
-# teamworkapp/urls.py
 from django.urls import path
 from .views import (
     NewsListCreateView, NewsDetailView,
     EventListCreateView, EventDetailView,
     JobListCreateView, JobDetailView,
-    ApprovalListView, ApprovalReviewView
+    ApprovalListView, ApprovalReviewView,
+    UserProfileView   # Make sure to import this!
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -28,4 +28,7 @@ urlpatterns = [
     # Approvals (admin review)
     path('api/v1/approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('api/v1/approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),
+
+    # User Profile
+    path('api/v1/me/', UserProfileView.as_view(), name='user-profile'),
 ]

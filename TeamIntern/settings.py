@@ -22,8 +22,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
+   
+  
+   
+ 
     
     # Third-party
+     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "phonenumber_field",
@@ -44,6 +50,8 @@ WSGI_APPLICATION = "TeamIntern.wsgi.application"  # MUST match project folder na
 # Middleware
 # ========================
 MIDDLEWARE = [
+     "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -115,3 +123,31 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+CORS_ALLOWED_ORIGINS = [
+
+    "http://localhost:3000",           # React dev server
+    "http://127.0.0.1:3000",
+
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+CORS_ALLOW_ALL_HEADERS = True
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+CORS_ALLOW_CREDENTIALS = True
