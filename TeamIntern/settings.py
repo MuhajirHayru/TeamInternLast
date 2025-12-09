@@ -52,6 +52,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+SITE_ID = 1
+YOUTUBE_API_KEY = "AIzaSyC9zMR2-L0l0fDSUAw0IstAWdLqozDn2hc"
 
 # ========================
 # Templates

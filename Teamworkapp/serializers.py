@@ -174,3 +174,9 @@ class PostAnalyticsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostAnalytics
         fields = "__all__"
+        
+ #================ for view for ========>       
+class youtubechannalser(serializers.ModelSerializer):
+     class Meta:
+       model =YouTubeChannel
+       fields= "__all__"

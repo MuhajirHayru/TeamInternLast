@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from .models import *
 from .serializers import *
 from rest_framework import viewsets
+from rest_framework.views import APIView
 
 # -----------------------
 # Helper function: public_filter
@@ -197,9 +198,11 @@ class PostCommentViewSet(viewsets.ModelViewSet):
 
 
 class PostReactionViewSet(viewsets.ModelViewSet):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     queryset = PostReaction.objects.all().order_by("-reacted_at")
     serializer_class = PostReactionSerializer
-    permission_classes = [IsAuthenticated]
+    
 
     def perform_create(self, serializer):
         # update_or_create ensures one reaction per user per object
@@ -255,3 +258,121 @@ class PostAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(content_type_id=content_type)
 
         return qs
+    
+    
+class ProductAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(Product)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+
+class NewsAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(News)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+
+class JobAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(JobAnnouncement)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+
+class EventAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(Event)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+
+class ServiceAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(Service)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+
+class BrandAnalyticsView(APIView):
+    def get(self, request, pk):
+        ct = ContentType.objects.get_for_model(Brand)
+        analytics = PostAnalytics.objects.filter(content_type=ct, object_id=pk).first()
+        if not analytics:
+            return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PostAnalyticsSerializer(analytics).data)
+#====================social views======>
+# def get(self, request):
+  #      channel_id = request.query_params.get("channel_id", "UCbDu-3uy2FE7SePKf0VT5FQ")
+
+    #    url = "https://www.googleapis.com/youtube/v3/channels"
+  #      params = {
+    #        "part": "statistics",
+
+    
+    ##
+# views.py
+import requests
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.conf import settings
+from .models import YouTubeChannel, YouTubeStats
+
+
+class YouTubeStatsView(APIView):
+    def get(self, request):
+        channels = YouTubeChannel.objects.all()
+        if not channels.exists():
+            return Response({"error": "No channels configured"}, status=400)
+
+        results = []
+
+        for channel in channels:
+            url = "https://www.googleapis.com/youtube/v3/channels"
+            params = {
+                "part": "statistics",
+                "id": channel.channel_id,
+                "key": settings.YOUTUBE_API_KEY
+            }
+
+            r = requests.get(url, params=params)
+            data = r.json()
+
+            if "items" in data and data["items"]:
+                stats = data["items"][0]["statistics"]
+
+                # Save snapshot tied to channel
+                YouTubeStats.objects.create(
+                    channel_id=channel.channel_id,
+                    view_count=stats.get("viewCount", 0),
+                    subscriber_count=stats.get("subscriberCount", 0),
+                    video_count=stats.get("videoCount", 0),
+                )
+
+                results.append({
+                    "channel_name": channel.name,
+                    "channel_id": channel.channel_id,
+                    "view_count": stats.get("viewCount", 0),
+                    "subscriber_count": stats.get("subscriberCount", 0),
+                    "video_count": stats.get("videoCount", 0),
+                })
+            else:
+                results.append({
+                    "channel_name": channel.name,
+                    "channel_id": channel.channel_id,
+                    "error": "No statistics found"
+                })
+
+        return Response(results, status=200)
+
+
+    
+class youtubeviewset(viewsets.ModelViewSet):
+    queryset= YouTubeChannel.objects.all()
+    serializer_class= youtubechannalser

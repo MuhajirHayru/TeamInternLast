@@ -455,3 +455,28 @@ class PostAnalytics(models.Model):
 
     def __str__(self):
         return f"Analytics for {self.content_object}"
+    
+ #===========================social==========================   
+
+# models.py
+from django.db import models
+
+class YouTubeChannel(models.Model):
+    name = models.CharField(max_length=255)
+    channel_id = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
+  
+    
+class YouTubeStats(models.Model):
+    channel_Name= models.TextField(blank=True, null=True)
+    channel_id = models.CharField(max_length=100)
+    view_count = models.BigIntegerField()
+    subscriber_count = models.BigIntegerField()
+    video_count = models.BigIntegerField()
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.channel_id} - Subs: {self.subscriber_count} - Views: {self.view_count} ({self.fetched_at.date()})"
+
