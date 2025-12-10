@@ -180,3 +180,78 @@ class youtubechannalser(serializers.ModelSerializer):
      class Meta:
        model =YouTubeChannel
        fields= "__all__"
+       
+       
+#======= mohajir>
+#  Product Serializer
+# -----------------------------
+class ProductSerializer(serializers.ModelSerializer):
+    media = PicturesSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = (
+            "id", "name", "features", "benefits", "product_url",
+            "created_at", "expires_at", "status", "media"
+        )
+        read_only_fields = ("status", "created_at")
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        user = request.user if request else None
+        # If you want to attach author as a foreign key, uncomment this line
+        # validated_data['author'] = user
+        return Product.objects.create(**validated_data)
+
+
+# -----------------------------
+# Service Serializer
+# -----------------------------
+class ServiceSerializer(serializers.ModelSerializer):
+    media = PicturesSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Service
+        fields = (
+            "id", "name", "description", "duration", "price_range",
+            "service_type", "phone_number", "created_at", "status", "media"
+        )
+        read_only_fields = ("status", "created_at")
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        user = request.user if request else None
+        # If you want to attach author as a foreign key, uncomment this line
+        # validated_data['author'] = user
+        return Service.objects.create(**validated_data)
+#below this there is api for creating user sighuppages ok 
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class UserSignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    password2 = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email', 'password', 'password2')
+
+    def validate(self, attrs):
+        # Check if passwords match
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError({"password": "Password fields didn't match."})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password2')
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data.get('email', ''),
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            password=validated_data['password'],
+            role=User.ROLE_CUSTOMER  # assign normal user role
+        )
+        return user

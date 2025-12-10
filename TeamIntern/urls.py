@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("Teamworkapp.urls")),
+    path("api/v1/", include("Teamworkapp.urls")),
 ]
 
 if settings.DEBUG:

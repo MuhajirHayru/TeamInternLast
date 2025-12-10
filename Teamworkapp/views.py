@@ -312,7 +312,7 @@ class BrandAnalyticsView(APIView):
   #      channel_id = request.query_params.get("channel_id", "UCbDu-3uy2FE7SePKf0VT5FQ")
 
     #    url = "https://www.googleapis.com/youtube/v3/channels"
-  #      params = {
+    #      params = {
     #        "part": "statistics",
 
     
@@ -376,3 +376,97 @@ class YouTubeStatsView(APIView):
 class youtubeviewset(viewsets.ModelViewSet):
     queryset= YouTubeChannel.objects.all()
     serializer_class= youtubechannalser
+    
+    
+    
+    #mohajir ++++===================>
+    # PRODUCT
+# -----------------------
+class ProductListCreateView(generics.ListCreateAPIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        qs = Product.objects.all().order_by("-created_at")
+        user = self.request.user
+        if user.is_authenticated and (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
+            return qs
+        # Public users see only approved, not expired
+        return qs.filter(status="APPROVED")
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if not user.is_authenticated or not getattr(user, "role", None) == "it_officer":
+            raise permissions.PermissionDenied("Only IT officers can create products.")
+        serializer.save()
+
+# -----------------------
+# SERVICE
+# -----------------------
+class ServiceListCreateView(generics.ListCreateAPIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    serializer_class = ServiceSerializer
+
+    def get_queryset(self):
+        qs = Service.objects.all().order_by("-created_at")
+        user = self.request.user
+        if user.is_authenticated and (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
+            return qs
+        return qs.filter(status="APPROVED")
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if not user.is_authenticated or not getattr(user, "role", None) == "it_officer":
+            raise permissions.PermissionDenied("Only IT officers can create services.")
+        serializer.save()
+#bello this the detailed views of the product and the service presented ok
+# -----------------------
+# PRODUCT DETAIL VIEW
+# -----------------------
+class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a specific Product.
+    """
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
+            raise permissions.PermissionDenied("Only admins or IT officers can edit this product.")
+        serializer.save()
+
+# -----------------------
+# SERVICE DETAIL VIEW
+# -----------------------
+class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a specific Service.
+    """
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    queryset = Service.objects.all()
+    serializer_class = ServiceSerializer
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
+            raise permissions.PermissionDenied("Only admins or IT officers can edit this service.")
+        serializer.save()
+    #below this the code is for developing the api for customeruser ok 
+    # teamworkapp/views.py
+from rest_framework import generics, permissions
+from .serializers import UserSignupSerializer
+
+class UserSignupView(generics.CreateAPIView):
+    """
+    API endpoint for normal user signup (role='customer').
+    """
+    serializer_class = UserSignupSerializer
+    permission_classes = [permissions.AllowAny]  # anyone can signup
