@@ -128,7 +128,7 @@ class ApprovalListView(generics.ListAPIView):
     # authentication_classes = (JWTAuthentication,)
     # permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ApprovalSerializer
-    queryset=Approval.objects.filter(status='APPROVED')
+    queryset=Approval.objects.filter(status='REJECTED')
     # def get_queryset(self):
     #     user = self.request.user
     # #     if user.is_superuser or getattr(user, "role", None) == "admin":
@@ -186,6 +186,21 @@ class ApprovalReviewView(generics.UpdateAPIView):
             pass
 
         return Response(ApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+#bellow this I want to develop the the api for the approved alone
+class ApprovedViews(generics.ListAPIView):
+    queryset=Approval.objects.filter(status='APPROVED')
+    serializer_class=ApprovalSerializer
+
+#bellow this I want to develop the the api for the pending alone
+class PendingViews(generics.ListAPIView):
+    queryset=Approval.objects.filter(status='PENDING')
+    serializer_class=ApprovalSerializer
+#bellow this I want to develop the the api for the rejected alone
+class RejectedViews(generics.ListAPIView):
+    queryset=Approval.objects.filter(status='REJECTED')
+    serializer_class=ApprovalSerializer
+
+
 #=================================================================
 class PostCommentViewSet(viewsets.ModelViewSet):
     queryset = PostComment.objects.all().order_by("-created_at")

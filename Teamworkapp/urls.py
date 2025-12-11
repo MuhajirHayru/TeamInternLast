@@ -60,13 +60,16 @@ urlpatterns = [
     path('events/<int:pk>/analytics/', EventAnalyticsView.as_view(), name='event-analytics'),
     path('services/<int:pk>/analytics/', ServiceAnalyticsView.as_view(), name='service-analytics'),
     path('brands/<int:pk>/analytics/', BrandAnalyticsView.as_view(), name='brand-analytics'),
-# =======
     # Approvals (admin review)
     path('approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),
-#below this the api for customer sighup
-#i am adding thi just for use of 
+    #iam adding this just for use of api for customer sighup
     path('signup/', UserSignupView.as_view(), name='user-signup'),
+    #   again g=here there is the api for aproved views only
+    path('Approved_views/', ApprovedViews.as_view(), name='approved-lists'),
+    path('Pending_views/', PendingViews.as_view(), name='Pending-lists'),
+    path('Rejected_views/', RejectedViews.as_view(), name='Rejected-lists'),
+
     ]
 
 # >>>>>>> 6b98ccc71aaaa698815f782692e09f9cfb922a3a
