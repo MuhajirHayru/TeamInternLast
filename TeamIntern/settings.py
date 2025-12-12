@@ -12,6 +12,7 @@ ALLOWED_HOSTS = ["*"]
 # INSTALLED APPS
 # ========================
 INSTALLED_APPS = [
+    "corsheaders",
     # Local app
     "Teamworkapp",  # MUST match folder name exactly (capital T)
     
@@ -44,6 +45,8 @@ WSGI_APPLICATION = "TeamIntern.wsgi.application"  # MUST match project folder na
 # Middleware
 # ========================
 MIDDLEWARE = [
+     "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -92,23 +95,23 @@ MEDIA_URL = "/media/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ========================
-# REST Framework
-# ========================
-# REST_FRAMEWORK = {
-#     "DEFAULT_AUTHENTICATION_CLASSES": (
-#         "rest_framework_simplejwt.authentication.JWTAuthentication",
-#     ),
-#     "DEFAULT_PERMISSION_CLASSES": (
-#         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-#     ),
-# }
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ),
+}
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+
 
 # ========================
 # Internationalization
@@ -117,3 +120,11 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "content-type",
+    "authorization",
+]

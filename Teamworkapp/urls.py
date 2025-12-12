@@ -1,5 +1,6 @@
 # <<<<<<< HEAD
 from django.urls import path, include
+from .views import UserProfileView
 from rest_framework.routers import DefaultRouter
 from .views import *
 
@@ -16,11 +17,15 @@ router.register(r'stats/youtube/create', youtubeviewset)
 # teamworkapp/urls.py
 
 
+
+
+
+
 # >>>>>>> 6b98ccc71aaaa698815f782692e09f9cfb922a3a
 urlpatterns = [
     # User
-    #  path('profile/', UserProfileView.as_view(), name='user-profile'),
-    #  path('me/', UserProfileView.as_view(), name='me'),
+      path('profile/', UserProfileView.as_view(), name='user-profile'),
+     path('me/', UserProfileView.as_view(), name='me'),
 
 # Products
     path('products/', ProductListCreateView.as_view(), name='product-list-create'),
@@ -67,6 +72,7 @@ urlpatterns = [
 #below this the api for customer sighup
 #i am adding thi just for use of 
     path('signup/', UserSignupView.as_view(), name='user-signup'),
+    
     ]
 
 # >>>>>>> 6b98ccc71aaaa698815f782692e09f9cfb922a3a
