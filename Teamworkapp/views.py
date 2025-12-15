@@ -11,6 +11,18 @@ from .serializers import *
 from rest_framework import viewsets
 from rest_framework.views import APIView
 
+#below this i am going to import some thing
+from rest_framework.views import APIView
+from rest_framework import status
+
+# from .models import User
+# from .serializers import (
+#     ITOfficerCreateSerializer,
+#     ITOfficerPasswordChangeSerializer
+# )
+from .permissions import IsAdminUserRole
+
+
 # -----------------------
 # Helper function: public_filter
 # -----------------------
@@ -59,7 +71,6 @@ class NewsDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     queryset = News.objects.all()
     serializer_class = NewsSerializer
-
     def perform_update(self, serializer):
         user = self.request.user
         instance = self.get_object()
@@ -184,7 +195,6 @@ class ApprovalReviewView(generics.UpdateAPIView):
                 obj.save()
         except model_class.DoesNotExist:
             pass
-
         return Response(ApprovalSerializer(approval).data, status=status.HTTP_200_OK)
 #bellow this I want to develop the the api for the approved alone
 class ApprovedViews(generics.ListAPIView):
@@ -199,7 +209,6 @@ class PendingViews(generics.ListAPIView):
 class RejectedViews(generics.ListAPIView):
     queryset=Approval.objects.filter(status='REJECTED')
     serializer_class=ApprovalSerializer
-
 
 #=================================================================
 class PostCommentViewSet(viewsets.ModelViewSet):
@@ -484,4 +493,35 @@ class UserSignupView(generics.CreateAPIView):
     API endpoint for normal user signup (role='customer').
     """
     serializer_class = UserSignupSerializer
-    permission_classes = [permissions.AllowAny]  # anyone can signup
+    permission_classes = [permissions.AllowAny]  # anyone can signup#
+    
+# BELO THIS THERE IS API FOR CREATING THE IT_officer 
+class CreateITOfficerView(APIView):
+    permission_classes = [IsAdminUserRole]
+
+    def post(self, request):
+        serializer = ITOfficerCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response({
+                "message": "IT Officer created successfully",
+                "id": user.id,
+                "username": user.username
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# below this there is api for changing the it_officers password
+class ChangeITOfficerPasswordView(APIView):
+    permission_classes = [IsAdminUserRole]
+
+    def patch(self, request, pk):
+        user = get_object_or_404(User, pk=pk, role=User.ROLE_IT)
+
+        serializer = ITOfficerPasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user)
+            return Response({
+                "message": "Password updated successfully"
+            })
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

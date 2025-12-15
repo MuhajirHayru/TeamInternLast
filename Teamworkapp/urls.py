@@ -41,8 +41,11 @@ urlpatterns = [
     # Jobs
     path('jobs/', JobListCreateView.as_view(), name='job-list'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job-detail'),
+    #bellow this i have the endpoints for the creations of the it__officers and changing the password
+    
+    path("it-officers/create/", CreateITOfficerView.as_view()),
+    path("officers/<int:pk>/change-password/", ChangeITOfficerPasswordView.as_view()),
 
-# <<<<<<< HEAD
     # Approvals
     path('approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),

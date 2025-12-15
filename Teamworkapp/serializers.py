@@ -1,6 +1,9 @@
 # teamworkapp/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+
+# from rest_framework import serializers
+# from .models import User
 from .models import *
 
 User = get_user_model()
@@ -253,3 +256,31 @@ class UserSignupSerializer(serializers.ModelSerializer):
             role=User.ROLE_CUSTOMER  # assign normal user role
         )
         return user
+
+class ITOfficerCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=6)
+
+    class Meta:
+        model = User
+        fields = ["username", "password", "first_name", "last_name"]
+
+    def create(self, validated_data):
+        user = User(
+            username=validated_data["username"],
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+            role=User.ROLE_IT
+        )
+        user.set_password(validated_data["password"])
+        user.save()
+        return user
+#this is serializer for changing passwords for IT_officers
+class ITOfficerPasswordChangeSerializer(serializers.Serializer):
+    new_password = serializers.CharField(min_length=6)
+
+    def save(self, user):
+        user.set_password(self.validated_data["new_password"])
+        user.save()
+        return user
+
+
