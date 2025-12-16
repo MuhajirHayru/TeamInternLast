@@ -1,27 +1,18 @@
 # teamworkapp/views.py
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.utils import timezone
 from django.db import models
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import AllowAny,IsAuthenticated
 from django.shortcuts import get_object_or_404
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.contenttypes.models import ContentType
+import requests
+
 from .models import *
 from .serializers import *
-from rest_framework import viewsets
-from rest_framework.views import APIView
-
-#below this i am going to import some thing
-from rest_framework.views import APIView
-from rest_framework import status
-
-# from .models import User
-# from .serializers import (
-#     ITOfficerCreateSerializer,
-#     ITOfficerPasswordChangeSerializer
-# )
 from .permissions import IsAdminUserRole
-
 
 # -----------------------
 # Helper function: public_filter
@@ -71,6 +62,7 @@ class NewsDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     queryset = News.objects.all()
     serializer_class = NewsSerializer
+
     def perform_update(self, serializer):
         user = self.request.user
         instance = self.get_object()
@@ -105,6 +97,13 @@ class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
 
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"] or instance.author == user):
+            raise permissions.PermissionDenied("Not allowed to edit this event.")
+        serializer.save()
+
 # -----------------------
 # JOBS
 # -----------------------
@@ -132,25 +131,21 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = JobAnnouncement.objects.all()
     serializer_class = JobAnnouncementSerializer
 
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"] or instance.author == user):
+            raise permissions.PermissionDenied("Not allowed to edit this job post.")
+        serializer.save()
+
 # -----------------------
 # APPROVALS
 # -----------------------
 class ApprovalListView(generics.ListAPIView):
-    # authentication_classes = (JWTAuthentication,)
-    # permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ApprovalSerializer
-    queryset=Approval.objects.filter(status='REJECTED')
-    # def get_queryset(self):
-    #     user = self.request.user
-    # #     if user.is_superuser or getattr(user, "role", None) == "admin":
-    #         return Approval.objects.all().order_by("-submitted_at")
-    #     return Approval.objects.filter(submitted_by=user).order_by("-submitted_at")
+    queryset = Approval.objects.all().order_by("-submitted_at")
 
 class ApprovalReviewView(generics.UpdateAPIView):
-    """
-    API endpoint to allow admins or superusers to review and approve/reject submissions.
-    Accepts PATCH requests with 'status' and optional 'review_comment'.
-    """
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ApprovalSerializer
@@ -159,33 +154,23 @@ class ApprovalReviewView(generics.UpdateAPIView):
     def update(self, request, *args, **kwargs):
         approval = self.get_object()
         user = request.user
-
-        # Only superuser or admin can review
         if not user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
         if not (user.is_superuser or getattr(user, "role", None) == "admin"):
             return Response({"detail": "Only admins or superusers can review approvals."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get status and comment
         new_status = request.data.get("status")
         review_comment = request.data.get("review_comment", "")
-
-        # Validate status strictly against model constants
         valid_statuses = [Approval.STATUS_PENDING, Approval.STATUS_APPROVED, Approval.STATUS_REJECTED]
         if new_status not in valid_statuses:
-            return Response(
-                {"detail": f"Invalid status. Must be one of {valid_statuses}."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": f"Invalid status. Must be one of {valid_statuses}."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update approval record
         approval.status = new_status
         approval.reviewed_by = user
         approval.reviewed_at = timezone.now()
         approval.review_comment = review_comment
         approval.save()
 
-        # Update the underlying object if it has a 'status' field
         ct = approval.content_type
         model_class = ct.model_class()
         try:
@@ -195,41 +180,40 @@ class ApprovalReviewView(generics.UpdateAPIView):
                 obj.save()
         except model_class.DoesNotExist:
             pass
+
         return Response(ApprovalSerializer(approval).data, status=status.HTTP_200_OK)
-#bellow this I want to develop the the api for the approved alone
+
 class ApprovedViews(generics.ListAPIView):
-    queryset=Approval.objects.filter(status='APPROVED')
-    serializer_class=ApprovalSerializer
+    queryset = Approval.objects.filter(status='APPROVED')
+    serializer_class = ApprovalSerializer
 
-#bellow this I want to develop the the api for the pending alone
 class PendingViews(generics.ListAPIView):
-    queryset=Approval.objects.filter(status='PENDING')
-    serializer_class=ApprovalSerializer
-#bellow this I want to develop the the api for the rejected alone
-class RejectedViews(generics.ListAPIView):
-    queryset=Approval.objects.filter(status='REJECTED')
-    serializer_class=ApprovalSerializer
+    queryset = Approval.objects.filter(status='PENDING')
+    serializer_class = ApprovalSerializer
 
-#=================================================================
+class RejectedViews(generics.ListAPIView):
+    queryset = Approval.objects.filter(status='REJECTED')
+    serializer_class = ApprovalSerializer
+
+# -----------------------
+# SOCIAL POSTS
+# -----------------------
 class PostCommentViewSet(viewsets.ModelViewSet):
     queryset = PostComment.objects.all().order_by("-created_at")
     serializer_class = PostCommentSerializer
     permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-       user = self.request.user if self.request.user.is_authenticated else None
-       serializer.save(user=user)
-
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(user=user)
 
 class PostReactionViewSet(viewsets.ModelViewSet):
     authentication_classes = (JWTAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = [IsAuthenticated]
     queryset = PostReaction.objects.all().order_by("-reacted_at")
     serializer_class = PostReactionSerializer
-    
 
     def perform_create(self, serializer):
-        # update_or_create ensures one reaction per user per object
         obj, created = PostReaction.objects.update_or_create(
             content_type=serializer.validated_data["content_type"],
             object_id=serializer.validated_data["object_id"],
@@ -271,19 +255,20 @@ class PostViewViewSet(viewsets.ModelViewSet):
 class PostAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PostAnalyticsSerializer
     queryset = PostAnalytics.objects.all()
+
     def get_queryset(self):
         qs = PostAnalytics.objects.all()
         object_id = self.request.query_params.get("object_id")
         content_type = self.request.query_params.get("content_type")
-
         if object_id:
             qs = qs.filter(object_id=object_id)
         if content_type:
             qs = qs.filter(content_type_id=content_type)
-
         return qs
-    
-    
+
+# -----------------------
+# ANALYTICS VIEWS
+# -----------------------
 class ProductAnalyticsView(APIView):
     def get(self, request, pk):
         ct = ContentType.objects.get_for_model(Product)
@@ -331,24 +316,10 @@ class BrandAnalyticsView(APIView):
         if not analytics:
             return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(PostAnalyticsSerializer(analytics).data)
-#====================social views======>
-# def get(self, request):
-  #      channel_id = request.query_params.get("channel_id", "UCbDu-3uy2FE7SePKf0VT5FQ")
 
-    #    url = "https://www.googleapis.com/youtube/v3/channels"
-    #      params = {
-    #        "part": "statistics",
-
-    
-    ##
-# views.py
-import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.conf import settings
-from .models import YouTubeChannel, YouTubeStats
-
-
+# -----------------------
+# YOUTUBE CHANNELS
+# -----------------------
 class YouTubeStatsView(APIView):
     def get(self, request):
         channels = YouTubeChannel.objects.all()
@@ -356,7 +327,6 @@ class YouTubeStatsView(APIView):
             return Response({"error": "No channels configured"}, status=400)
 
         results = []
-
         for channel in channels:
             url = "https://www.googleapis.com/youtube/v3/channels"
             params = {
@@ -364,21 +334,17 @@ class YouTubeStatsView(APIView):
                 "id": channel.channel_id,
                 "key": settings.YOUTUBE_API_KEY
             }
-
             r = requests.get(url, params=params)
             data = r.json()
 
             if "items" in data and data["items"]:
                 stats = data["items"][0]["statistics"]
-
-                # Save snapshot tied to channel
                 YouTubeStats.objects.create(
                     channel_id=channel.channel_id,
                     view_count=stats.get("viewCount", 0),
                     subscriber_count=stats.get("subscriberCount", 0),
                     video_count=stats.get("videoCount", 0),
                 )
-
                 results.append({
                     "channel_name": channel.name,
                     "channel_id": channel.channel_id,
@@ -392,19 +358,14 @@ class YouTubeStatsView(APIView):
                     "channel_id": channel.channel_id,
                     "error": "No statistics found"
                 })
-
         return Response(results, status=200)
 
-
-    
 class youtubeviewset(viewsets.ModelViewSet):
-    queryset= YouTubeChannel.objects.all()
-    serializer_class= youtubechannalser
-    
-    
-    
-    #mohajir ++++===================>
-    # PRODUCT
+    queryset = YouTubeChannel.objects.all()
+    serializer_class = youtubechannalser
+
+# -----------------------
+# PRODUCTS
 # -----------------------
 class ProductListCreateView(generics.ListCreateAPIView):
     authentication_classes = (JWTAuthentication,)
@@ -416,17 +377,29 @@ class ProductListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_authenticated and (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
             return qs
-        # Public users see only approved, not expired
         return qs.filter(status="APPROVED")
 
     def perform_create(self, serializer):
         user = self.request.user
         if not user.is_authenticated or not getattr(user, "role", None) == "it_officer":
             raise permissions.PermissionDenied("Only IT officers can create products.")
+        serializer.save(author=user)
+
+class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"] or instance.author == user):
+            raise permissions.PermissionDenied("Not allowed to edit this product.")
         serializer.save()
 
 # -----------------------
-# SERVICE
+# SERVICES
 # -----------------------
 class ServiceListCreateView(generics.ListCreateAPIView):
     authentication_classes = (JWTAuthentication,)
@@ -444,34 +417,9 @@ class ServiceListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if not user.is_authenticated or not getattr(user, "role", None) == "it_officer":
             raise permissions.PermissionDenied("Only IT officers can create services.")
-        serializer.save()
-#bello this the detailed views of the product and the service presented ok
-# -----------------------
-# PRODUCT DETAIL VIEW
-# -----------------------
-class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Retrieve, update, or delete a specific Product.
-    """
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+        serializer.save(author=user)
 
-    def perform_update(self, serializer):
-        user = self.request.user
-        instance = self.get_object()
-        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
-            raise permissions.PermissionDenied("Only admins or IT officers can edit this product.")
-        serializer.save()
-
-# -----------------------
-# SERVICE DETAIL VIEW
-# -----------------------
 class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Retrieve, update, or delete a specific Service.
-    """
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     queryset = Service.objects.all()
@@ -480,22 +428,20 @@ class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         user = self.request.user
         instance = self.get_object()
-        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"]):
-            raise permissions.PermissionDenied("Only admins or IT officers can edit this service.")
+        if not (user.is_superuser or getattr(user, "role", None) in ["admin", "it_officer"] or instance.author == user):
+            raise permissions.PermissionDenied("Not allowed to edit this service.")
         serializer.save()
-    #below this the code is for developing the api for customeruser ok 
-    # teamworkapp/views.py
-from rest_framework import generics, permissions
-from .serializers import UserSignupSerializer
 
+# -----------------------
+# CUSTOMER SIGNUP
+# -----------------------
 class UserSignupView(generics.CreateAPIView):
-    """
-    API endpoint for normal user signup (role='customer').
-    """
     serializer_class = UserSignupSerializer
-    permission_classes = [permissions.AllowAny]  # anyone can signup#
-    
-# BELO THIS THERE IS API FOR CREATING THE IT_officer 
+    permission_classes = [permissions.AllowAny]
+
+# -----------------------
+# IT OFFICER MANAGEMENT
+# -----------------------
 class CreateITOfficerView(APIView):
     permission_classes = [IsAdminUserRole]
 
@@ -508,20 +454,15 @@ class CreateITOfficerView(APIView):
                 "id": user.id,
                 "username": user.username
             }, status=status.HTTP_201_CREATED)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-# below this there is api for changing the it_officers password
+
 class ChangeITOfficerPasswordView(APIView):
     permission_classes = [IsAdminUserRole]
 
     def patch(self, request, pk):
         user = get_object_or_404(User, pk=pk, role=User.ROLE_IT)
-
         serializer = ITOfficerPasswordChangeSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user)
-            return Response({
-                "message": "Password updated successfully"
-            })
-
+            return Response({"message": "Password updated successfully"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
