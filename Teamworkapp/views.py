@@ -1,19 +1,20 @@
-# teamworkapp/views.py
+# teamworkapp/views.py - FULL UPDATED FILE
+
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import models
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework.permissions import AllowAny,IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.shortcuts import get_object_or_404
 from .models import *
-from .serializers import *
+from .serializers import * # Make sure your serializers (PostReactionSerializer, etc.) are imported
 from rest_framework import viewsets
 from rest_framework.views import APIView
-# teamworkapp/views.py
-from rest_framework import generics, permissions
-from .serializers import UserSerializer
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+import requests 
+from django.conf import settings 
 
 User = get_user_model()
 
@@ -139,16 +140,9 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 # APPROVALS
 # -----------------------
 class ApprovalListView(generics.ListAPIView):
-    # authentication_classes = (JWTAuthentication,)
-    # permission_classes = (permissions.IsAuthenticated,)
     serializer_class = ApprovalSerializer
     queryset=Approval.objects.filter(status='REJECTED')
-    # def get_queryset(self):
-    #     user = self.request.user
-    # #     if user.is_superuser or getattr(user, "role", None) == "admin":
-    #         return Approval.objects.all().order_by("-submitted_at")
-    #     return Approval.objects.filter(submitted_by=user).order_by("-submitted_at")
-
+    
 class ApprovalReviewView(generics.UpdateAPIView):
     """
     API endpoint to allow admins or superusers to review and approve/reject submissions.
@@ -215,33 +209,134 @@ class RejectedViews(generics.ListAPIView):
     serializer_class=ApprovalSerializer
 
 
-#=================================================================
+# =================================================================
+# POST FEEDBACK VIEWSETS
+# =================================================================
 class PostCommentViewSet(viewsets.ModelViewSet):
-    queryset = PostComment.objects.all().order_by("-created_at")
+    # Publicly accessible comments, ordered by newest first
+    queryset = PostComment.objects.all().order_by("-created_at") 
     serializer_class = PostCommentSerializer
-    permission_classes = [AllowAny]
+    # Allow viewing for all, but creation/edit/delete only for authenticated users
+    permission_classes = [IsAuthenticatedOrReadOnly] 
+
+    # CRITICAL FIX: get_queryset to filter comments by post ID 
+    def get_queryset(self):
+        # 1. Start with the default queryset (all comments)
+        queryset = super().get_queryset()
+
+        # 2. Extract the filter parameters from the request URL (sent by the React component)
+        content_type_id = self.request.query_params.get('content_type')
+        object_id = self.request.query_params.get('object_id')
+
+        # 3. Apply the necessary filter
+        if content_type_id and object_id:
+            # Filter the queryset to include ONLY comments for that specific post
+            queryset = queryset.filter(
+                content_type_id=content_type_id,
+                object_id=object_id
+            ).order_by('created_at') # Order ensures comments display chronologically
+        
+        # Optional: Prevent listing all comments if no specific post is requested
+        elif self.action == 'list':
+            return queryset.none()
+            
+        return queryset
 
     def perform_create(self, serializer):
-       user = self.request.user if self.request.user.is_authenticated else None
-       serializer.save(user=user)
+        user = self.request.user
+        # Ensure only authenticated users can comment
+        if not user.is_authenticated:
+            raise permissions.PermissionDenied("You must be logged in to comment.")
+            
+        serializer.save(user=user) # Associate the comment with the logged-in user
 
 
 class PostReactionViewSet(viewsets.ModelViewSet):
     authentication_classes = (JWTAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated,) 
     queryset = PostReaction.objects.all().order_by("-reacted_at")
     serializer_class = PostReactionSerializer
     
-
+    # 🛑 FINAL FIX: Direct ORM for Guaranteed Persistence 🛑
     def perform_create(self, serializer):
-        # update_or_create ensures one reaction per user per object
-        obj, created = PostReaction.objects.update_or_create(
-            content_type=serializer.validated_data["content_type"],
-            object_id=serializer.validated_data["object_id"],
-            user=self.request.user,
-            defaults={"reaction_type": serializer.validated_data["reaction_type"]}
+        user = self.request.user
+        validated_data = serializer.validated_data
+
+        content_type = validated_data["content_type"] # This is the ContentType object now
+        object_id = validated_data["object_id"]
+        reaction_type = validated_data.get("reaction_type", "like")
+        
+        reaction_qs = PostReaction.objects.filter(
+            content_type=content_type,
+            object_id=object_id,
+            user=user
         )
-        serializer.instance = obj
+        
+        if reaction_qs.exists():
+            # UNLIKE (Delete the existing reaction)
+            reaction_qs.delete()
+            # Set a temporary instance for the response
+            serializer.instance = PostReaction(
+                content_type=content_type, 
+                object_id=object_id, 
+                user=user, 
+                reaction_type='unliked'
+            )
+        else:
+            # LIKE (Create a new reaction using ORM to guarantee save)
+            obj = PostReaction.objects.create(
+                user=user,
+                content_type=content_type,
+                object_id=object_id,
+                reaction_type=reaction_type
+            )
+            serializer.instance = obj
+
+        
+# -----------------------------------------------------------------
+# POST REACTION COUNT VIEW
+# -----------------------------------------------------------------
+class PostReactionCountView(APIView):
+    """
+    Returns the total count of reactions for a specific post and checks if the current user has reacted.
+    """
+    permission_classes = [AllowAny] 
+
+    def get(self, request, *args, **kwargs):
+        content_type_id = request.query_params.get('content_type')
+        object_id = request.query_params.get('object_id')
+        reaction_type = request.query_params.get('reaction_type', 'like') 
+
+        if not content_type_id or not object_id:
+            return Response(
+                {"detail": "Missing content_type or object_id query parameters."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Filter the PostReaction model
+        count = PostReaction.objects.filter(
+            content_type_id=content_type_id,
+            object_id=object_id,
+            reaction_type__iexact=reaction_type 
+        ).count()
+
+        # Check if the currently logged-in user has reacted to this post
+        user_reacted = False
+        if request.user.is_authenticated:
+            user_reacted = PostReaction.objects.filter(
+                content_type_id=content_type_id,
+                object_id=object_id,
+                user=request.user
+            ).exists()
+
+        return Response({
+            "object_id": object_id,
+            "content_type_id": content_type_id,
+            "reaction_type": reaction_type,
+            "count": count,
+            "user_reacted": user_reacted 
+        }, status=status.HTTP_200_OK)
+
 
 class PostShareViewSet(viewsets.ModelViewSet):
     queryset = PostShare.objects.all().order_by("-shared_at")
@@ -337,23 +432,6 @@ class BrandAnalyticsView(APIView):
             return Response({"detail": "No analytics found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(PostAnalyticsSerializer(analytics).data)
 #====================social views======>
-# def get(self, request):
-  #      channel_id = request.query_params.get("channel_id", "UCbDu-3uy2FE7SePKf0VT5FQ")
-
-    #    url = "https://www.googleapis.com/youtube/v3/channels"
-    #      params = {
-    #        "part": "statistics",
-
-    
-    ##
-# views.py
-import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.conf import settings
-from .models import YouTubeChannel, YouTubeStats
-
-
 class YouTubeStatsView(APIView):
     def get(self, request):
         channels = YouTubeChannel.objects.all()
@@ -367,7 +445,8 @@ class YouTubeStatsView(APIView):
             params = {
                 "part": "statistics",
                 "id": channel.channel_id,
-                "key": settings.YOUTUBE_API_KEY
+                # NOTE: You must have 'settings.YOUTUBE_API_KEY' defined in your Django settings
+                "key": settings.YOUTUBE_API_KEY 
             }
 
             r = requests.get(url, params=params)
@@ -400,11 +479,12 @@ class YouTubeStatsView(APIView):
 
         return Response(results, status=200)
 
-
     
 class youtubeviewset(viewsets.ModelViewSet):
+    # NOTE: Assuming youtubechannalser is defined in .serializers
     queryset= YouTubeChannel.objects.all()
     serializer_class= youtubechannalser
+    
     
     
     
@@ -489,13 +569,14 @@ class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise permissions.PermissionDenied("Only admins or IT officers can edit this service.")
         serializer.save()
     #below this the code is for developing the api for customeruser ok 
-    # teamworkapp/views.py
 from rest_framework import generics, permissions
-from .serializers import UserSignupSerializer
+# NOTE: UserSignupSerializer must be imported from .serializers if it's not in the main block
+# from .serializers import UserSignupSerializer 
 
 class UserSignupView(generics.CreateAPIView):
     """
     API endpoint for normal user signup (role='customer').
     """
-    serializer_class = UserSignupSerializer
-    permission_classes = [permissions.AllowAny]  # anyone can signup
+    # NOTE: Assuming UserSignupSerializer is correctly defined
+    serializer_class = UserSignupSerializer 
+    permission_classes = [permissions.AllowAny]   # anyone can signup

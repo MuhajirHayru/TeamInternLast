@@ -1,3 +1,5 @@
+# teamworkapp/urls.py - FULL UPDATED FILE
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import *;
@@ -41,8 +43,15 @@ urlpatterns = [
     path('approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),
 
-    # Router URLs
+    # Router URLs 
     path('set/', include(router.urls)),
+    
+    # 🛑 URL PATH FOR REACTION COUNT 🛑
+    path(
+        'set/feedback/reactions/count/', 
+        PostReactionCountView.as_view(), 
+        name='post-reaction-count'
+    ),
 
     # Social Media Views
     path("stats/youtube/", YouTubeStatsView.as_view(), name="youtube-stats"),
@@ -57,7 +66,7 @@ urlpatterns = [
 
     # Customer Signup API
     path('signup/', UserSignupView.as_view(), name='user-signup'),
-
+ 
     # Approved / Pending / Rejected Views
     path('Approved_views/', ApprovedViews.as_view(), name='approved-lists'),
     path('Pending_views/', PendingViews.as_view(), name='pending-lists'),

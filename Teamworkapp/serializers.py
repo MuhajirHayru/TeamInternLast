@@ -1,6 +1,7 @@
 # teamworkapp/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from .models import *
 
 User = get_user_model()
@@ -133,6 +134,13 @@ class PostCommentSerializer(serializers.ModelSerializer):
 
 class PostReactionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    
+    # 🛑 FIX: Explicitly define ContentType fields as write-only for successful input validation 🛑
+    content_type = serializers.PrimaryKeyRelatedField(
+        queryset=ContentType.objects.all(), 
+        write_only=True
+    )
+    object_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = PostReaction
@@ -173,15 +181,15 @@ class PostAnalyticsSerializer(serializers.ModelSerializer):
         model = PostAnalytics
         fields = "__all__"
         
- #================ for view for ========>       
+#================ for view for ========>       
 class youtubechannalser(serializers.ModelSerializer):
-     class Meta:
-       model =YouTubeChannel
-       fields= "__all__"
-       
-       
+    class Meta:
+        model =YouTubeChannel
+        fields= "__all__"
+        
+        
 #======= mohajir>
-#  Product Serializer
+#   Product Serializer
 # -----------------------------
 class ProductSerializer(serializers.ModelSerializer):
     media = PicturesSerializer(many=True, read_only=True)
@@ -243,7 +251,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password2')
+        # validated_data.pop('password2')
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
