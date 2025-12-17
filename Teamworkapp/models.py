@@ -469,14 +469,63 @@ class YouTubeChannel(models.Model):
         return self.name
   
     
+
+
 class YouTubeStats(models.Model):
-    channel_Name= models.TextField(blank=True, null=True)
+    channel_name = models.TextField(blank=True, null=True)
     channel_id = models.CharField(max_length=100)
-    view_count = models.BigIntegerField()
-    subscriber_count = models.BigIntegerField()
-    video_count = models.BigIntegerField()
-    fetched_at = models.DateTimeField(auto_now_add=True)
+    view_count = models.BigIntegerField(default=0)
+    subscriber_count = models.BigIntegerField(default=0)
+    video_count = models.BigIntegerField(default=0)
+    date = models.DateField(auto_now=True,null=True)   # 👈 IMPORTANT
+    fetched_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("channel_id", "date")
+        ordering = ["-date"]
 
     def __str__(self):
-        return f"{self.channel_id} - Subs: {self.subscriber_count} - Views: {self.view_count} ({self.fetched_at.date()})"
+        return f"{self.channel_name} ({self.date}),{self.subscriber_count}subscribers "
+from django.db import models
+
+class FacebookConfig(models.Model):
+    app_id = models.CharField(max_length=255)
+    app_secret = models.CharField(max_length=255)
+    page_id = models.CharField(max_length=100)
+    long_lived_user_token = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Facebook Config (Page {self.page_id})"
+
+    class Meta:
+        verbose_name = "Facebook Configuration"
+        verbose_name_plural = "Facebook Configuration"
+
+
+class PageStats(models.Model):
+    date = models.DateField(auto_now_add=True)
+    views = models.IntegerField(default=0)
+    followers = models.IntegerField(default=0)
+    likes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ('date',)
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.date}: {self.views} views, {self.followers} followers, {self.likes} likes"
+
+
+class FacebookToken1(models.Model):
+    page_id = models.CharField(max_length=50)
+    page_token = models.TextField()
+    expires_at = models.DateTimeField()
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"FacebookToken (expires {self.expires_at})"
 

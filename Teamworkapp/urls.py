@@ -55,7 +55,7 @@ urlpatterns = [
 
     # Social Media Views
     path("stats/youtube/", YouTubeStatsView.as_view(), name="youtube-stats"),
-
+    path("stats/facebook/", FacebookStatsAPI.as_view()),
     # Analytics by post type
     path('products/<int:pk>/analytics/', ProductAnalyticsView.as_view(), name='product-analytics'),
     path('news/<int:pk>/analytics/', NewsAnalyticsView.as_view(), name='news-analytics'),

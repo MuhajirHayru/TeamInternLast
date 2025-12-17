@@ -339,7 +339,7 @@ class YouTubeStatsView(APIView):
 
             if "items" in data and data["items"]:
                 stats = data["items"][0]["statistics"]
-                YouTubeStats.objects.create(
+                YouTubeStats.objects.update_or_create(
                     channel_id=channel.channel_id,
                     view_count=stats.get("viewCount", 0),
                     subscriber_count=stats.get("subscriberCount", 0),
@@ -363,7 +363,24 @@ class YouTubeStatsView(APIView):
 class youtubeviewset(viewsets.ModelViewSet):
     queryset = YouTubeChannel.objects.all()
     serializer_class = youtubechannalser
+class FacebookStatsAPI(APIView):
+    def get(self, request):
+        stat = PageStats.objects.order_by("-date").first()
 
+        if not stat:
+            return Response({
+                "followers": 0,
+                "likes": 0,
+                "views": 0,
+                "last_updated": None
+            })
+
+        return Response({
+            "followers": stat.followers,
+            "likes": stat.likes,
+            "views": stat.views,
+            
+        })
 # -----------------------
 # PRODUCTS
 # -----------------------

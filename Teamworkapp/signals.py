@@ -21,3 +21,12 @@ def ensure_analytics(instance):
 @receiver(post_delete, sender=PostView)
 def update_analytics(sender, instance, **kwargs):
     ensure_analytics(instance)
+    
+def run_startup_tasks(sender, **kwargs):
+    from Teamworkapp.tasks.facebook_tasks import fetch_daily_facebook_stats
+
+    try:
+        print("🚀 Server started → updating Facebook stats")
+        fetch_daily_facebook_stats()
+    except Exception as e:
+        print("❌ Startup Facebook fetch failed:", e)
