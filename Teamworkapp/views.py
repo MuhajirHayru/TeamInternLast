@@ -363,6 +363,8 @@ class YouTubeStatsView(APIView):
 class youtubeviewset(viewsets.ModelViewSet):
     queryset = YouTubeChannel.objects.all()
     serializer_class = youtubechannalser
+    permission_classes = [AllowAny]
+    
 class FacebookStatsAPI(APIView):
     def get(self, request):
         stat = PageStats.objects.order_by("-date").first()
@@ -381,6 +383,10 @@ class FacebookStatsAPI(APIView):
             "views": stat.views,
             
         })
+class facebookviewset(viewsets.ModelViewSet):
+    queryset = FacebookConfig.objects.all()
+    serializer_class = facebookchannalser
+    permission_classes = [AllowAny]
 # -----------------------
 # PRODUCTS
 # -----------------------

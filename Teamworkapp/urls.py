@@ -11,6 +11,7 @@ router.register(r'feedback/ratings', PostRatingViewSet)
 router.register(r'feedback/views', PostViewViewSet)
 router.register(r'feedback/analytics', PostAnalyticsViewSet)
 router.register(r'stats/youtube/create', youtubeviewset)
+router.register(r'stats/facebook/create', facebookviewset)
 
 # =======
 # teamworkapp/urls.py
