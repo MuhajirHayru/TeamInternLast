@@ -7,3 +7,4 @@ class TeamworkappConfig(AppConfig):
 
     def ready(self):
       from.  import signals
+      

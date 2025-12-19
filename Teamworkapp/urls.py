@@ -49,7 +49,11 @@ urlpatterns = [
     # Approvals
     path('approvals/', ApprovalListView.as_view(), name='approval-list'),
     path('approvals/<int:pk>/review/', ApprovalReviewView.as_view(), name='approval-review'),
-
+    #api for the notifications
+    # path("notifications/count/", NotificationCountView.as_view()),
+    path("notifications/", NotificationListView.as_view(), name="notifications-list"),
+    path("notifications/count/", NotificationCountView.as_view(), name="notifications-count"),
+    path("notifications/<int:pk>/mark_read/", NotificationMarkReadView.as_view(), name="notifications-mark-read"),
     # Router URLs
     path('set/', include(router.urls)),
 

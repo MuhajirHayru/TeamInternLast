@@ -9,10 +9,15 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.contenttypes.models import ContentType
 import requests
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Notification
 from .models import *
 from .serializers import *
 from .permissions import IsAdminUserRole
+
+from .serializers import NotificationSerializer
 
 # -----------------------
 # Helper function: public_filter
@@ -466,3 +471,31 @@ class ChangeITOfficerPasswordView(APIView):
             serializer.save(user)
             return Response({"message": "Password updated successfully"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# below this the notificatio api ok
+
+# List all notifications
+class NotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        notifications = Notification.objects.filter(recipient=request.user).order_by("-created_at")
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data)
+
+# Unread count
+class NotificationCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+        return Response({"unread_count": count})
+
+# Mark as read
+class NotificationMarkReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        notif = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        notif.is_read = True
+        notif.save()
+        return Response({"success": True})

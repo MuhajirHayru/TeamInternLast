@@ -313,3 +313,8 @@ class ITOfficerPasswordChangeSerializer(serializers.Serializer):
         user.set_password(self.validated_data["new_password"])
         user.save()
         return user
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'action_type', 'is_read', 'content_type', 'object_id', 'created_at']
