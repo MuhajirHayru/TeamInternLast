@@ -49,12 +49,13 @@ class MediaCreateMixin(serializers.Serializer):
 class NewsSerializer(MediaCreateMixin, serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     media = PicturesSerializer(many=True, read_only=True)
+    is_expired = serializers.ReadOnlyField()
 
     class Meta:
         model = News
         fields = (
             "id", "title", "summary", "content", "source", "published_date",
-            "author", "status", "expires_at",
+            "author", "status", "expires_at","is_expired",
             "media", "uploads"
         )
         read_only_fields = ("status", "published_date", "author")
@@ -72,12 +73,13 @@ class NewsSerializer(MediaCreateMixin, serializers.ModelSerializer):
 class EventSerializer(MediaCreateMixin, serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     media = PicturesSerializer(many=True, read_only=True)
+    is_expired = serializers.ReadOnlyField()
 
     class Meta:
         model = Event
         fields = (
             "id", "title", "event_type", "description", "start_date", "deadline",
-            "target_audience", "location", "registration_link", "created_at",
+            "target_audience", "location", "registration_link", "created_at","is_expired",
             "author", "status", "media", "uploads"
         )
         read_only_fields = ("status", "created_at", "author")
@@ -95,13 +97,15 @@ class EventSerializer(MediaCreateMixin, serializers.ModelSerializer):
 class JobAnnouncementSerializer(MediaCreateMixin, serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     media = PicturesSerializer(many=True, read_only=True)
+    is_expired = serializers.ReadOnlyField()
+
 
     class Meta:
         model = JobAnnouncement
         fields = (
             "id", "title", "department", "job_type", "description", "requirements",
             "no_of_vacancies", "gender", "position", "salary", "location",
-            "application_link", "expires_at", "posted_at",
+            "application_link","is_expired", "expires_at", "posted_at",
             "author", "status",
             "media", "uploads"
         )
@@ -224,12 +228,13 @@ class youtubechannalser(serializers.ModelSerializer):
 # -----------------------------
 class ProductSerializer(MediaCreateMixin, serializers.ModelSerializer):
     media = PicturesSerializer(many=True, read_only=True)
+    is_expired = serializers.ReadOnlyField()
 
     class Meta:
         model = Product
         fields = (
             "id", "name", "features", "benefits", "product_url",
-            "created_at", "expires_at", "status",
+            "created_at", "expires_at","is_expired", "status",
             "media", "uploads"
         )
         read_only_fields = ("status", "created_at")
@@ -246,12 +251,13 @@ class ProductSerializer(MediaCreateMixin, serializers.ModelSerializer):
 # -----------------------------
 class ServiceSerializer(MediaCreateMixin, serializers.ModelSerializer):
     media = PicturesSerializer(many=True, read_only=True)
+    is_expired = serializers.ReadOnlyField()
 
     class Meta:
         model = Service
         fields = (
             "id", "name", "description", "duration", "price_range",
-            "service_type", "phone_number", "created_at", "status",
+            "service_type", "phone_number", "created_at","is_expired", "status",
             "media", "uploads"
         )
         read_only_fields = ("status", "created_at")
@@ -307,7 +313,7 @@ class ITOfficerCreateSerializer(serializers.ModelSerializer):
 
 
 class ITOfficerPasswordChangeSerializer(serializers.Serializer):
-    new_password = serializers.CharField(min_length=6)
+    new_password = serializers.CharField(min_length=8)
 
     def save(self, user):
         user.set_password(self.validated_data["new_password"])
