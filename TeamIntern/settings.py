@@ -5,11 +5,16 @@ from datetime import timedelta
 # ========================
 # BASE
 # ========================
+import os
+from pathlib import Path
+from datetime import timedelta
+from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 SECRET_KEY = "replace-with-a-real-secret-key"
 DEBUG = True
-ALLOWED_HOSTS = ["*"]  # tighten in production
-
+ALLOWED_HOSTS = ["*"]
+load_dotenv(BASE_DIR / ".env")
 # ========================
 # INSTALLED APPS
 # ========================
@@ -27,23 +32,52 @@ INSTALLED_APPS = [
     "django.contrib.sites",  # Required for SITE_ID
 
     # Third-party
-    "rest_framework",
+     "rest_framework.authtoken",
+
+    
+    
     "rest_framework_simplejwt",
     "phonenumber_field",
     "channels",  # Channels for real-time WebSocket notifications
 ]
 
-# ========================
-# Custom User
-# ========================
+SITE_ID = 1
+
 AUTH_USER_MODEL = "Teamworkapp.User"
 
-# ========================
-# URLs & WSGI/ASGI
-# ========================
+
+
+# =========================
+# EMAIL SETTINGS (DEV)
+# =========================
+# settings.py
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django.core.mail": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    },
+}
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "bekelegetaneh24@gmail.com"
+EMAIL_HOST_PASSWORD = "oreviyfnqkjiajlf"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
 ROOT_URLCONF = "TeamIntern.urls"
 WSGI_APPLICATION = "TeamIntern.wsgi.application"
-ASGI_APPLICATION = "TeamIntern.asgi.application"  # For WebSocket support
+ # For WebSocket support
 
 # ========================
 # Middleware
@@ -54,6 +88,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -61,7 +96,7 @@ MIDDLEWARE = [
 # ========================
 # Site framework
 # ========================
-SITE_ID = 1
+
 
 # ========================
 # YouTube API Key

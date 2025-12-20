@@ -325,50 +325,41 @@ class BrandAnalyticsView(APIView):
 # -----------------------
 # YOUTUBE CHANNELS
 # -----------------------
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from Teamworkapp.services.youtube_service import fetch_youtube_stats
+
 class YouTubeStatsView(APIView):
     def get(self, request):
-        channels = YouTubeChannel.objects.all()
-        if not channels.exists():
-            return Response({"error": "No channels configured"}, status=400)
-
-        results = []
-        for channel in channels:
-            url = "https://www.googleapis.com/youtube/v3/channels"
-            params = {
-                "part": "statistics",
-                "id": channel.channel_id,
-                "key": settings.YOUTUBE_API_KEY
-            }
-            r = requests.get(url, params=params)
-            data = r.json()
-
-            if "items" in data and data["items"]:
-                stats = data["items"][0]["statistics"]
-                YouTubeStats.objects.create(
-                    channel_id=channel.channel_id,
-                    view_count=stats.get("viewCount", 0),
-                    subscriber_count=stats.get("subscriberCount", 0),
-                    video_count=stats.get("videoCount", 0),
-                )
-                results.append({
-                    "channel_name": channel.name,
-                    "channel_id": channel.channel_id,
-                    "view_count": stats.get("viewCount", 0),
-                    "subscriber_count": stats.get("subscriberCount", 0),
-                    "video_count": stats.get("videoCount", 0),
-                })
-            else:
-                results.append({
-                    "channel_name": channel.name,
-                    "channel_id": channel.channel_id,
-                    "error": "No statistics found"
-                })
-        return Response(results, status=200)
+        stats = fetch_youtube_stats()
+        return Response({"count": len(stats)}, status=200)
 
 class youtubeviewset(viewsets.ModelViewSet):
     queryset = YouTubeChannel.objects.all()
     serializer_class = youtubechannalser
+    
+class FacebookStatsAPI(APIView):
+    def get(self, request):
+        stat = PageStats.objects.order_by("-date").first()
 
+        if not stat:
+            return Response({
+                "followers": 0,
+                "likes": 0,
+                "views": 0,
+                "last_updated": None
+            })
+
+        return Response({
+            "followers": stat.followers,
+            "likes": stat.likes,
+            "views": stat.views,
+            
+        })
+class facebookviewset(viewsets.ModelViewSet):
+    queryset = FacebookConfig.objects.all()
+    serializer_class = facebookchannalser
+    permission_classes = [AllowAny]
 # -----------------------
 # PRODUCTS
 # -----------------------
@@ -499,3 +490,78 @@ class NotificationMarkReadView(APIView):
         notif.is_read = True
         notif.save()
         return Response({"success": True})
+
+
+
+# Teamworkapp/views.py
+
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import PasswordResetOTP
+from .utils import generate_otp
+
+User = get_user_model()
+
+class ForgotPasswordAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+
+        if not email:
+            return Response({"error": "Email required"}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
+
+        otp = generate_otp()
+
+        PasswordResetOTP.objects.create(user=user, otp=otp)
+
+        send_mail(
+            subject="Password Reset OTP",
+            message=f"Your OTP is {otp}. It expires in 10 minutes.",
+            from_email=None,
+            recipient_list=[email],
+        )
+
+        return Response({"message": "OTP sent to email"}, status=200)
+
+# Teamworkapp/views.py
+
+from django.contrib.auth.hashers import make_password
+
+class ResetPasswordAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+        new_password = request.data.get("new_password")
+
+        if not all([email, otp, new_password]):
+            return Response({"error": "All fields required"}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+            otp_obj = PasswordResetOTP.objects.filter(
+                user=user, otp=otp
+            ).latest("created_at")
+        except:
+            return Response({"error": "Invalid OTP"}, status=400)
+
+        if otp_obj.is_expired():
+            return Response({"error": "OTP expired"}, status=400)
+
+        user.password = make_password(new_password)
+        user.save()
+
+        otp_obj.delete()
+
+        return Response({"message": "Password reset successful"}, status=200)

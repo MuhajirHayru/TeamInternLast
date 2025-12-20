@@ -222,7 +222,10 @@ class youtubechannalser(serializers.ModelSerializer):
         model = YouTubeChannel
         fields = "__all__"
 
-
+class facebookchannalser(serializers.ModelSerializer):
+    class Meta:
+        model = FacebookConfig
+        fields = "__all__"
 # -----------------------------
 # Product Serializer
 # -----------------------------

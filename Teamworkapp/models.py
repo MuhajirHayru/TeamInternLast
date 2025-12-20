@@ -475,10 +475,57 @@ class YouTubeStats(models.Model):
     view_count = models.BigIntegerField()
     subscriber_count = models.BigIntegerField()
     video_count = models.BigIntegerField()
+    date = models.DateField(auto_now=True,null=True) 
     fetched_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ("channel_id", "date")
+        ordering = ["-date"]
+
     def __str__(self):
-        return f"{self.channel_id} - Subs: {self.subscriber_count} - Views: {self.view_count} ({self.fetched_at.date()})"
+        return f"{self.channel_Name} ({self.date}),{self.subscriber_count}subscribers "
+class FacebookConfig(models.Model):
+    app_id = models.CharField(max_length=255)
+    app_secret = models.CharField(max_length=255)
+    page_id = models.CharField(max_length=100)
+    long_lived_user_token = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Facebook Config (Page {self.page_id})"
+
+    class Meta:
+        verbose_name = "Facebook Configuration"
+        verbose_name_plural = "Facebook Configuration"
+
+
+class PageStats(models.Model):
+    date = models.DateField(auto_now_add=True)
+    views = models.IntegerField(default=0)
+    followers = models.IntegerField(default=0)
+    likes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ('date',)
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.date}: {self.views} views, {self.followers} followers, {self.likes} likes"
+
+
+class FacebookToken1(models.Model):
+    page_id = models.CharField(max_length=50)
+    page_token = models.TextField()
+    expires_at = models.DateTimeField()
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"FacebookToken (expires {self.expires_at})"
+
+
 #below this the notification api presented 
 # class Notification(models.Model):
 #     recipient = models.ForeignKey(
@@ -510,3 +557,22 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.recipient.username} - {self.message[:20]}"
+# Teamworkapp/models.py
+
+from django.db import models
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
+
+User = get_user_model()
+
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=10)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.otp}"

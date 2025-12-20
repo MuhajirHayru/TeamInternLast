@@ -11,6 +11,7 @@ router.register(r'feedback/ratings', PostRatingViewSet)
 router.register(r'feedback/views', PostViewViewSet)
 router.register(r'feedback/analytics', PostAnalyticsViewSet)
 router.register(r'stats/youtube/create', youtubeviewset)
+router.register(r'stats/facebook/create', facebookviewset)
 
 # =======
 # teamworkapp/urls.py
@@ -59,6 +60,7 @@ urlpatterns = [
 
     # Social Media Views
     path("stats/youtube/", YouTubeStatsView.as_view(), name="youtube-stats"),
+    path("stats/facebook/", FacebookStatsAPI.as_view()),
 
     # Analytics by post type
     path('products/<int:pk>/analytics/', ProductAnalyticsView.as_view(), name='product-analytics'),
@@ -76,7 +78,8 @@ urlpatterns = [
     path('Approved_views/', ApprovedViews.as_view(), name='approved-lists'),
     path('Pending_views/', PendingViews.as_view(), name='Pending-lists'),
     path('Rejected_views/', RejectedViews.as_view(), name='Rejected-lists'),
-
+    path("auth/forgot-password/", ForgotPasswordAPIView.as_view()),
+    path("auth/reset-password/", ResetPasswordAPIView.as_view()),
     ]
 
 # >>>>>>> 6b98ccc71aaaa698815f782692e09f9cfb922a3a
