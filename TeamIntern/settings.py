@@ -1,27 +1,22 @@
 import os
 from pathlib import Path
 from datetime import timedelta
-
-# ========================
-# BASE
-# ========================
-import os
-from pathlib import Path
-from datetime import timedelta
-from dotenv import load_dotenv
+# Add this to settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "replace-with-a-real-secret-key"
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
-load_dotenv(BASE_DIR / ".env")
+
 # ========================
 # INSTALLED APPS
 # ========================
 INSTALLED_APPS = [
-    # Local apps
-    "Teamworkapp",
-
+    'corsheaders',
+    # Local app
+    "Teamworkapp",  # MUST match folder name exactly (capital T)
+    
     # Django core
     "django.contrib.admin",
     "django.contrib.auth",
@@ -29,29 +24,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.sites",  # Required for SITE_ID
-
+    
     # Third-party
-     "rest_framework.authtoken",
-
-    
-    
+    "rest_framework",
     "rest_framework_simplejwt",
     "phonenumber_field",
-    "channels",  # Channels for real-time WebSocket notifications
 ]
-
-SITE_ID = 1
-
-AUTH_USER_MODEL = "Teamworkapp.User"
-
-
-
-# =========================
-# EMAIL SETTINGS (DEV)
-# =========================
-# settings.py
-
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 LOGGING = {
     "version": 1,
@@ -73,34 +51,31 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "bekelegetaneh24@gmail.com"
 EMAIL_HOST_PASSWORD = "oreviyfnqkjiajlf"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# ========================
+# Custom User Model
+# ========================
+AUTH_USER_MODEL = "Teamworkapp.User"  # MUST match app folder name
 
-
-ROOT_URLCONF = "TeamIntern.urls"
-WSGI_APPLICATION = "TeamIntern.wsgi.application"
- # For WebSocket support
+# ========================
+# URL and WSGI
+# ========================
+ROOT_URLCONF = "TeamIntern.urls"          # MUST match project folder name
+WSGI_APPLICATION = "TeamIntern.wsgi.application"  # MUST match project folder name
 
 # ========================
 # Middleware
 # ========================
 MIDDLEWARE = [
+     'corsheaders.middleware.CorsMiddleware',  # must be high
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-
-# ========================
-# Site framework
-# ========================
-
-
-# ========================
-# YouTube API Key
-# ========================
+SITE_ID = 1
 YOUTUBE_API_KEY = "AIzaSyC9zMR2-L0l0fDSUAw0IstAWdLqozDn2hc"
 
 # ========================
@@ -133,16 +108,16 @@ DATABASES = {
 }
 
 # ========================
-# Static & Media
+# Static and Media
 # ========================
 STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ========================
-# REST Framework & JWT
-# ========================
+#========================
+#REST Framework
+#========================
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -165,24 +140,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+CORS_ALLOW_ALL_ORIGINS = True
 
-# ========================
-# Channels: WebSockets & Real-time Notifications
-# ========================
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",  # Recommended for production
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],  # Redis running locally
-        },
-    }
-}
 
-# ========================
-# Optional Settings
-# ========================
-# CORS if React frontend is hosted separately
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React dev server
-    # Add production frontend URL here
-]
+

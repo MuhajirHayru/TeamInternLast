@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.db.models import Q  # ← Added for filtering admins/IT officers
 
 # =====================================================
 # CUSTOM USER MODEL
@@ -313,28 +314,56 @@ class JobAnnouncement(models.Model):
 
 
 # =====================================================
-# SIGNAL: auto-create Approval on new instances created by IT
+# SIGNAL: auto-create Approval AND Notification on new pending instances
 # =====================================================
 APPROVABLE_MODELS = (News, Event, JobAnnouncement, Product, Service, Brand)
 
 @receiver(post_save)
-def create_approval_on_create(sender, instance, created, **kwargs):
+def create_approval_and_notification(sender, instance, created, **kwargs):
     if not created:
         return
     if sender in APPROVABLE_MODELS:
         status = getattr(instance, "status", None)
         if status and status == sender.STATUS_PENDING:
+            # Create Approval
             submitted_by = None
             if hasattr(instance, "author"):
                 submitted_by = getattr(instance, "author")
-            elif hasattr(instance, "submitted_by"):
-                submitted_by = getattr(instance, "submitted_by")
             Approval.objects.create(
                 content_type=ContentType.objects.get_for_model(sender),
                 object_id=instance.pk,
                 submitted_by=submitted_by
             )
-        #============================below this bekeles code ================
+
+            # Create Notification for all admins and IT officers
+            model_name = sender._meta.model_name  # e.g., "news", "product"
+            title = str(instance)
+            if hasattr(instance, "title") and instance.title:
+                title = instance.title
+            elif hasattr(instance, "name") and instance.name:
+                title = instance.name
+
+            message = f"New {model_name.title()} pending approval: {title}"
+
+            # Get all admins and IT officers
+            recipients = User.objects.filter(
+                Q(role=User.ROLE_ADMIN) | Q(role=User.ROLE_IT)
+            )
+
+            # Create notification for each
+            notifications_to_create = [
+                Notification(
+                    recipient=recipient,
+                    message=message,
+                    action_type="APPROVAL",
+                    content_type=ContentType.objects.get_for_model(sender),
+                    object_id=instance.pk
+                )
+                for recipient in recipients
+            ]
+            Notification.objects.bulk_create(notifications_to_create)
+
+
 class PostComment(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -469,21 +498,6 @@ class YouTubeChannel(models.Model):
         return self.name
   
     
-class YouTubeStats(models.Model):
-    channel_Name= models.TextField(blank=True, null=True)
-    channel_id = models.CharField(max_length=100)
-    view_count = models.BigIntegerField()
-    subscriber_count = models.BigIntegerField()
-    video_count = models.BigIntegerField()
-    date = models.DateField(auto_now=True,null=True) 
-    fetched_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("channel_id", "date")
-        ordering = ["-date"]
-
-    def __str__(self):
-        return f"{self.channel_Name} ({self.date}),{self.subscriber_count}subscribers "
 class FacebookConfig(models.Model):
     app_id = models.CharField(max_length=255)
     app_secret = models.CharField(max_length=255)
@@ -502,14 +516,14 @@ class FacebookConfig(models.Model):
 
 
 class PageStats(models.Model):
-    date = models.DateField(auto_now_add=True)
-    views = models.IntegerField(default=0)
+    date = models.DateField(unique=True)
     followers = models.IntegerField(default=0)
     likes = models.IntegerField(default=0)
+    views = models.IntegerField(default=0)
+    fetched_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('date',)
-        ordering = ['-date']
+        ordering = ["-date"]
 
     def __str__(self):
         return f"{self.date}: {self.views} views, {self.followers} followers, {self.likes} likes"
@@ -527,18 +541,6 @@ class FacebookToken1(models.Model):
 
 
 #below this the notification api presented 
-# class Notification(models.Model):
-#     recipient = models.ForeignKey(
-#         settings.AUTH_USER_MODEL,
-#         on_delete=models.CASCADE,
-#         related_name="notifications"
-#     )
-#     message = models.TextField()
-#     is_read = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"Notification to {self.recipient} - Read: {self.is_read}"
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -576,3 +578,23 @@ class PasswordResetOTP(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.otp}"
+ 
+class TikTokProfile(models.Model):
+    username = models.CharField(max_length=255, unique=True)
+    followers = models.IntegerField(null=True,blank=True)
+    following = models.IntegerField(null=True,blank=True)
+    likes = models.IntegerField(null=True,blank=True)
+    videos = models.IntegerField(null=True,blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.username
+# below this i am doing perfectlly the api for the telegram 
+class TelegramChannel(models.Model):
+    name = models.CharField(max_length=255, blank=True)
+    bot_token = models.CharField(max_length=255)  # your bot token
+    channel_id = models.BigIntegerField(unique=True)  # e.g., -1001970249942
+    username = models.CharField(max_length=255, blank=True)  # optional username
+
+    def __str__(self):
+        return self.name or str(self.channel_id)   

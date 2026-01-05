@@ -23,7 +23,8 @@ admin.site.register(PostAnalytics)
 admin.site.register(PostReaction)
 admin.site.register(PostRating)
 admin.site.register(YouTubeChannel)
-admin.site.register(YouTubeStats)
+#admin.site.register(YouTubeStats)
+admin.site.register(TelegramChannel)
 admin.site.register(FacebookToken1)
 from django.utils.html import format_html
 from .models import PageStats
@@ -53,3 +54,34 @@ class PageStatsAdmin(admin.ModelAdmin):
 @admin.register(FacebookConfig)
 class FacebookConfigAdmin(admin.ModelAdmin):
     list_display = ("page_id", "updated_at")
+    # admin.py
+from django.contrib import admin
+from .models import TikTokProfile
+from .scraper import scrape_tiktok_profile
+import asyncio
+
+@admin.register(TikTokProfile)
+class TikTokProfileAdmin(admin.ModelAdmin):
+    list_display = ("username", "followers", "following", "likes", "videos", "last_updated")
+    search_fields = ("username",)
+
+    def save_model(self, request, obj, form, change):
+        # always scrape on save (new or username changed)
+        stats = asyncio.run(scrape_tiktok_profile(obj.username))
+        obj.followers = stats["followers"]
+        obj.following = stats["following"]
+        obj.likes = stats["likes"]
+        obj.videos = stats["videos"]
+        super().save_model(request, obj, form, change)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        # optional: refresh when opening the admin detail page
+        obj = self.get_object(request, object_id)
+        if obj:
+            stats = asyncio.run(scrape_tiktok_profile(obj.username))
+            obj.followers = stats["followers"]
+            obj.following = stats["following"]
+            obj.likes = stats["likes"]
+            obj.videos = stats["videos"]
+            obj.save()
+        return super().change_view(request, object_id, form_url, extra_context)
